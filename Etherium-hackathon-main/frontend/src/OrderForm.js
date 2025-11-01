@@ -2,10 +2,21 @@ import React, { useState } from 'react';
 import { ethers } from 'ethers';
 // Importaciones para conexión múltiple
 import WalletConnectProvider from '@walletconnect/web3-provider'; 
-import Web3Modal from 'web3modal'; 
+import Web3Modal from 'web3modal';
+// Importación del cifrado César para encriptar la orden
+import { encryptOrder, DEFAULT_SHIFT } from './utils/caesarCipher'; 
 // Asume que la ID de proyecto de WalletConnect ha sido obtenida
 const WALLETCONNECT_PROJECT_ID = '5960bf846eaed41dd77ddbc1b0e27ede'; 
 const API_URL = '/api/orden'; 
+
+// --- CONSTANTES DEL SMART CONTRACT ---
+const UNI_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function decimals() view returns (uint8)"
+];
+const UNI_ADDRESS = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F982"; // Dirección real del token UNI
+const CHAIN_ID = 1; // Ethereum Mainnet
+// ------------------------------------
 
 // --- Componente de Visualización de Resultados ---
 const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
@@ -26,13 +37,13 @@ const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
             <div className="comparison-grid">
                 <div className="result-card ideal">
                     <h3>🚀 Resultado del Dark Pool (Anti-MEV)</h3>
-                    <p className="value">Recibido: **{formatCurrency(results.darkPoolOutput)} {order.tokenOut}**</p>
+                    <p className="value">Recibido: **{formatCurrency(results.darkPoolOutput)} USDC/DAI**</p>
                     <p className="detail">Precio ideal sin deslizamiento. Orden autenticada con firma criptográfica.</p>
                 </div>
                 
                 <div className="result-card normal">
                     <h3>❌ Swap Estándar (Mercado Abierto)</h3>
-                    <p className="value">Recibido: **{formatCurrency(results.normalSwapOutput)} {order.tokenOut}**</p>
+                    <p className="value">Recibido: **{formatCurrency(results.normalSwapOutput)} USDC/DAI**</p>
                     <p className="detail">Resultado simulado con un 3% de pérdida por MEV y deslizamiento.</p>
                 </div>
             </div>
@@ -40,10 +51,22 @@ const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
             <div className="savings-highlight">
                 <h3>💰 ¡Ahorro Total Preservado!</h3>
                 <p className="savings-value">
-                    {formatCurrency(results.totalSavings)} {order.tokenOut}
+                    {formatCurrency(results.totalSavings)} USDC/DAI
                 </p>
                 <p>Este es el valor que su DAO o estrategia algorítmica preservó al usar la ejecución privada.</p>
             </div>
+
+            {/* --- INFORMACIÓN DE ENCRIPTACIÓN --- */}
+            {results.encryptionUsed && (
+                <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #28a745', borderRadius: '8px', textAlign: 'left', backgroundColor: '#f0fff4' }}>
+                    <h4 style={{ color: '#28a745', marginTop: '0' }}>🔒 Orden Encriptada</h4>
+                    <p style={{ margin: '5px 0' }}><strong>Método:</strong> {results.encryptionUsed}</p>
+                    <p style={{ margin: '5px 0', fontSize: '0.9em', color: '#666' }}>
+                        Los datos de la orden fueron encriptados usando cifrado César (ROT13) antes de ser procesados en la simulación.
+                        Esto ayuda a proteger la información sensible durante la transmisión.
+                    </p>
+                </div>
+            )}
             
             {/* --- INTEGRACIÓN DEL RECIBO CRIPTOGRÁFICO --- */}
             <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #007bff', borderRadius: '8px', textAlign: 'left' }}>
@@ -75,12 +98,15 @@ const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
 function OrderForm() {
     const [walletAddress, setWalletAddress] = useState('');
     const [currentProvider, setCurrentProvider] = useState(null); 
+    
+    // MODIFICACIÓN FINAL: TOKEN UNI/USDC
     const [order, setOrder] = useState({ 
-        amount: 100, 
-        tokenIn: 'ETH', 
-        tokenOut: 'DAI', 
-        duration: 24 
+        amount: 500, 
+        tokenIn: 'UNI', 
+        tokenOut: 'USDC', 
+        duration: 48 
     });
+    
     const [statusMessage, setStatusMessage] = useState('');
     const [results, setResults] = useState(null); 
     const [signedData, setSignedData] = useState(null); 
@@ -98,8 +124,8 @@ function OrderForm() {
             walletconnect: {
                 package: WalletConnectProvider,
                 options: {
-                    // Usamos la Project ID obtenida
-                    infuraId: WALLETCONNECT_PROJECT_ID, 
+                    infuraId: WALLETCONNECT_PROJECT_ID,
+                    chainId: CHAIN_ID, // Usamos la constante 1
                 }
             }
         };
@@ -111,15 +137,35 @@ function OrderForm() {
 
         try {
             const web3Provider = await web3Modal.connect(); 
-            
             const provider = new ethers.BrowserProvider(web3Provider);
             const signer = await provider.getSigner();
-            
             const address = await signer.getAddress();
+            
+            // --- LÓGICA DE INTERACCIÓN CON EL SMART CONTRACT ---
+            let statusText = `Conectado: ${address.substring(0, 6)}...`;
+
+            try {
+                // 1. Crear instancia del contrato UNI (lectura)
+                const uniContract = new ethers.Contract(UNI_ADDRESS, UNI_ABI, provider);
+                
+                // 2. Leer el saldo del Smart Contract
+                const balanceRaw = await uniContract.balanceOf(address);
+                const decimals = await uniContract.decimals();
+                
+                // 3. Formatear y Mostrar
+                const balanceFormatted = ethers.formatUnits(balanceRaw, decimals);
+                
+                statusText = `✅ Conectado. Saldo UNI (SC): ${parseFloat(balanceFormatted).toFixed(2)}`;
+                
+            } catch (scError) {
+                // Si la red no es Mainnet o hay un fallo, se usa el mensaje por defecto.
+                statusText = `✅ Conectado. Error al leer el Saldo UNI (SC).`;
+            }
+            // ---------------------------------------------------
             
             setWalletAddress(address);
             setCurrentProvider(provider); 
-            setStatusMessage(`Conectado: ${address.substring(0, 6)}...`);
+            setStatusMessage(statusText); // Usamos el mensaje actualizado
 
         } catch (error) {
             console.error("Error conectando la billetera:", error);
@@ -170,13 +216,27 @@ function OrderForm() {
                 signature 
             }); 
 
-            setStatusMessage("2. Firma generada. Enviando al backend para simulación...");
+            setStatusMessage("2. Firma generada. Encriptando orden para simulación privada...");
 
+            // Preparar SOLO los datos de la orden para encriptar (NO incluye wallet, firma ni mensaje)
+            // Este es el JSON que se encripta: {"amount":"500","tokenIn":"UNI","tokenOut":"USDC","duration":"48","timestamp":"..."}
+            const orderData = {
+                amount: order.amount.toString(),
+                tokenIn: order.tokenIn,
+                tokenOut: order.tokenOut,
+                duration: order.duration.toString(),
+                timestamp: Date.now().toString()
+            };
+
+            // Encriptar SOLO los datos de la orden usando cifrado César
+            const encryptedOrder = encryptOrder(orderData, DEFAULT_SHIFT);
+
+            // Payload con orden encriptada (wallet NO se encripta)
             const payload = {
-                ...order,
-                walletAddress,
-                messageToVerify: message, 
-                signature 
+                encryptedOrder, // Solo la orden encriptada: {"amount":"...","tokenIn":"...","tokenOut":"...","duration":"...","timestamp":"..."}
+                walletAddress, // NO ENCRIPTADO - se envía en texto plano
+                messageToVerify: message, // NO ENCRIPTADO - mensaje original firmado (para verificación)
+                signature // NO ENCRIPTADO - firma criptográfica
             };
 
             const response = await fetch(API_URL, {
