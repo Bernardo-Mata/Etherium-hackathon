@@ -1,17 +1,20 @@
-// src/App.js
+/**
+ * @fileoverview Componente raíz de la aplicación
+ * @module App
+ */
 
 import React from 'react';
 import './App.css';
+import { AntiMevApp } from './components/AntiMevApp';
 
-// 1. Importa el componente OrderForm
-import OrderForm from './OrderForm'; 
-
+/**
+ * Componente principal de la aplicación
+ * @returns {JSX.Element} Aplicación Anti-MEV Dark Pool
+ */
 function App() {
   return (
-    // 2. Renderiza el OrderForm
-    // El div con className="App" y los estilos básicos de App.css se mantienen.
     <div className="App">
-      <OrderForm />
+      <AntiMevApp />
     </div>
   );
 }
