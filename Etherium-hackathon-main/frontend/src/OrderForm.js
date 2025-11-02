@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-// Importamos las librerías necesarias para el gráfico
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+// 🆕 IMPORTAR ETHERS.JS CORRECTAMENTE
+import { ethers } from 'ethers';
 
 // --- CONSTANTES GLOBALES ---
 const CHAIN_ID = 1; // Ethereum Mainnet
@@ -344,13 +345,13 @@ const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
 
 function OrderForm() {
     const [walletAddress, setWalletAddress] = useState('');
-    const [ethBalance, setEthBalance] = useState('0.00'); // Saldo real
+    const [ethBalance, setEthBalance] = useState('0.0000');
     const [chainId, setChainId] = useState(null);
     const [hoveredLink, setHoveredLink] = useState(null);
+    const [demoMode, setDemoMode] = useState(false);
     
-    // El monto inicial es bajo (0.005) para que puedas probar la firma con tu saldo
     const [order, setOrder] = useState({ 
-        amount: 0.005, 
+        amount: 0.0001,
         tokenIn: 'ETH',
         tokenOut: 'USDC', 
         duration: 48 
@@ -360,6 +361,36 @@ function OrderForm() {
     const [results, setResults] = useState(null);
     const [signedData, setSignedData] = useState(null);
 
+    // 🔧 ACTUALIZAR SALDO - ETHERS.JS V6
+    const updateBalance = async (address) => {
+        try {
+            console.log('🔍 Intentando leer saldo para:', address);
+            
+            // Crear provider (solo v6)
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            
+            // Obtener saldo en Wei
+            const balanceWei = await provider.getBalance(address);
+            console.log('📊 Balance en Wei:', balanceWei.toString());
+            
+            // Convertir de Wei a ETH (v6)
+            const balanceEth = ethers.formatEther(balanceWei);
+            console.log('💰 Balance en ETH:', balanceEth);
+            
+            // Formatear a 4 decimales
+            const balanceFormatted = parseFloat(balanceEth).toFixed(4);
+            
+            console.log(`✅ Saldo leído correctamente: ${balanceFormatted} ETH`);
+            setEthBalance(balanceFormatted);
+            return balanceFormatted;
+            
+        } catch (error) {
+            console.error('❌ Error leyendo saldo:', error);
+            setStatusMessage(`⚠️ Error al leer saldo: ${error.message}`);
+            return '0.0000';
+        }
+    };
+
     // Conectar a MetaMask
     const connectWallet = async () => {
         if (typeof window.ethereum === 'undefined') {
@@ -368,59 +399,44 @@ function OrderForm() {
         }
 
         try {
-            setStatusMessage('Conectando a MetaMask...');
+            console.log('🔌 Intentando conectar a MetaMask...');
+            setStatusMessage('🔄 Conectando a MetaMask...');
             
             // Solicitar acceso a las cuentas
             const accounts = await window.ethereum.request({ 
                 method: 'eth_requestAccounts' 
             });
             
+            console.log('✅ Cuentas obtenidas:', accounts);
+            
             const address = accounts[0];
             setWalletAddress(address);
 
-            // Obtener el chain ID
-            const currentChainId = await window.ethereum.request({ 
-                method: 'eth_chainId' 
-            });
-            setChainId(parseInt(currentChainId, 16));
+            // Crear provider (v6)
+            const provider = new ethers.BrowserProvider(window.ethereum);
 
-            // Leer saldo de ETH
-            await updateBalance(address);
+            // Obtener la red actual
+            const network = await provider.getNetwork();
+            const currentChainId = Number(network.chainId);
+            console.log('🌐 Red detectada - Chain ID:', currentChainId);
+            setChainId(currentChainId);
 
-            setStatusMessage(`✅ Conectado exitosamente. Saldo ETH: ${ethBalance} ETH`);
+            // 🔧 Leer saldo REAL
+            console.log('💰 Leyendo saldo...');
+            const realBalance = await updateBalance(address);
+
+            setStatusMessage(`✅ Conectado | Saldo: ${realBalance} ETH | Red: ${currentChainId}`);
 
             // Escuchar cambios
             window.ethereum.on('accountsChanged', handleAccountsChanged);
             window.ethereum.on('chainChanged', handleChainChanged);
 
         } catch (error) {
-            console.error('Error conectando:', error);
-            // Mostrar mensaje de error más legible
-            const msg = error.code === 4001 ? "Conexión rechazada por el usuario." : `Error: ${error.message}`;
+            console.error('❌ Error conectando:', error);
+            const msg = error.code === 4001 
+                ? "Conexión rechazada por el usuario." 
+                : `Error: ${error.message}`;
             setStatusMessage(`❌ ${msg}`);
-        }
-    };
-
-    // Actualizar saldo (lee el valor real)
-    const updateBalance = async (address) => {
-        try {
-            const balanceHex = await window.ethereum.request({
-                method: 'eth_getBalance',
-                params: [address, 'latest']
-            });
-            
-            // Convertir de Hex a BigInt (Wei)
-            const balanceWei = BigInt(balanceHex);
-            
-            // Convertir a cadena y luego a ETH (dividir por 10^18)
-            const balanceEthString = (Number(balanceWei) / 1e18).toFixed(4);
-
-            setEthBalance(balanceEthString);
-            return balanceEthString; // Retorna el saldo para usarlo en el estado
-        } catch (error) {
-            console.error('Error leyendo saldo:', error);
-            setStatusMessage('⚠️ Error al leer saldo ETH');
-            return '0.00';
         }
     };
 
@@ -446,7 +462,7 @@ function OrderForm() {
     // Desconectar wallet
     const disconnectWallet = () => {
         setWalletAddress('');
-        setEthBalance('0.00');
+        setEthBalance('0.0000');
         setChainId(null);
         setResults(null);
         setSignedData(null);
@@ -464,24 +480,34 @@ function OrderForm() {
         const checkConnection = async () => {
             if (typeof window.ethereum !== 'undefined') {
                 try {
+                    console.log('🔍 Verificando si ya hay una conexión...');
                     const accounts = await window.ethereum.request({ 
                         method: 'eth_accounts' 
                     });
                     
                     if (accounts.length > 0) {
+                        console.log('✅ Wallet ya conectada:', accounts[0]);
                         const address = accounts[0];
                         setWalletAddress(address);
+                        
+                        // Crear provider (v6)
+                        const provider = new ethers.BrowserProvider(window.ethereum);
+                        
                         const balance = await updateBalance(address);
                         
-                        const currentChainId = await window.ethereum.request({ 
-                            method: 'eth_chainId' 
-                        });
-                        setChainId(parseInt(currentChainId, 16));
-                        setStatusMessage(`✅ Conectado al cargar. Saldo: ${balance} ETH`);
+                        const network = await provider.getNetwork();
+                        const currentChainId = Number(network.chainId);
+                        setChainId(currentChainId);
+                        
+                        setStatusMessage(`✅ Reconectado | Saldo: ${balance} ETH`);
+                    } else {
+                        console.log('ℹ️ No hay wallet conectada previamente');
                     }
                 } catch (error) {
-                    console.error('Error verificando conexión:', error);
+                    console.error('❌ Error verificando conexión:', error);
                 }
+            } else {
+                console.warn('⚠️ MetaMask no está instalado');
             }
         };
         
@@ -510,13 +536,13 @@ function OrderForm() {
             return;
         }
 
-        // Validación de saldo real
-        if (parseFloat(order.amount) > parseFloat(ethBalance)) {
-            setStatusMessage(`❌ Saldo insuficiente. Necesitas ${order.amount} ETH, tienes ${ethBalance} ETH.`);
+        // 🆕 Validación modificada: permite orden si está en modo demo
+        if (!demoMode && parseFloat(order.amount) > parseFloat(ethBalance)) {
+            setStatusMessage(`❌ Saldo insuficiente. Necesitas ${order.amount} ETH, tienes ${ethBalance} ETH. Activa el Modo Demo para probar.`);
             return;
         }
         
-        if (chainId !== CHAIN_ID) {
+        if (chainId !== null && chainId !== CHAIN_ID) {
             setStatusMessage(`❌ Por favor, cambia a Ethereum Mainnet (Chain ID: ${CHAIN_ID}) para continuar.`);
             return;
         }
@@ -540,7 +566,7 @@ function OrderForm() {
             });
 
             setSignedData({ walletAddress, message, signature });
-            setStatusMessage("2. Firma generada. Simulando resultados...");
+            setStatusMessage(demoMode ? "2. ✅ Firma DEMO generada. Simulando..." : "2. Firma generada. Simulando resultados...");
 
             // Paso 2: Simular el proceso de backend y los resultados
             const ethPrice = 3000; // Precio simulado de ETH/USDC para el cálculo
@@ -550,13 +576,13 @@ function OrderForm() {
                 darkPoolOutput: orderValue,
                 normalSwapOutput: orderValue * 0.97, // 3% de pérdida simulada por MEV
                 totalSavings: orderValue * 0.03,
-                encryptionUsed: "Cifrado César (ROT13) Simulado"
+                encryptionUsed: demoMode ? "🎮 Cifrado César (MODO DEMO)" : "Cifrado César (ROT13) Simulado"
             };
 
             // Simular retraso del backend
             setTimeout(() => {
                 setResults(simulatedResults);
-                setStatusMessage("✅ Orden procesada exitosamente. Vea su ahorro.");
+                setStatusMessage(demoMode ? "✅ Orden DEMO procesada. (No se envió ETH real)" : "✅ Orden procesada exitosamente. Vea su ahorro.");
             }, 1500);
 
         } catch (error) {
@@ -598,8 +624,8 @@ function OrderForm() {
         }
 
         // Formulario de orden
-        const isBalanceInsufficient = parseFloat(order.amount) > parseFloat(ethBalance);
-        const buttonDisabled = !walletAddress || isBalanceInsufficient || chainId !== CHAIN_ID;
+        const isBalanceInsufficient = !demoMode && parseFloat(order.amount) > parseFloat(ethBalance);
+        const buttonDisabled = !walletAddress || (!demoMode && isBalanceInsufficient) || (chainId !== null && chainId !== CHAIN_ID);
         
         return (
             <div>
@@ -607,6 +633,26 @@ function OrderForm() {
                 <p style={styles.sectionSubtitle}>Define una orden para evitar que los bots MEV roben tu alfa</p>
 
                 <form onSubmit={handleSubmit}>
+                    {/* 🆕 Toggle de Modo Demo */}
+                    <div style={{ padding: '15px', backgroundColor: demoMode ? '#00ff7f1a' : '#ffcc001a', border: `1px solid ${demoMode ? '#00ff7f' : '#ffcc00'}`, borderRadius: '8px', marginBottom: '20px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <input 
+                                type="checkbox" 
+                                checked={demoMode} 
+                                onChange={(e) => setDemoMode(e.target.checked)} 
+                                style={{ marginRight: '10px', transform: 'scale(1.3)' }}
+                            />
+                            <span style={{ color: demoMode ? '#00ff7f' : '#ffcc00', fontWeight: 'bold' }}>
+                                🎮 Modo Demo (Probar sin ETH real)
+                            </span>
+                        </label>
+                        {demoMode && (
+                            <p style={{ color: '#999', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
+                                ✅ Activo: Puedes firmar órdenes sin tener saldo ETH
+                            </p>
+                        )}
+                    </div>
+
                     {/* Saldo Real */}
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>Saldo ETH (Real)</label>
@@ -621,16 +667,16 @@ function OrderForm() {
                     {/* Monto a Vender */}
                     <div style={styles.inputGroup}>
                         <label style={{ ...styles.label, color: isBalanceInsufficient ? '#ff4d4d' : styles.label.color }}>
-                            Monto a Vender {isBalanceInsufficient && `(Saldo insuficiente)`}
+                            Monto a Vender {isBalanceInsufficient && !demoMode && `(Saldo insuficiente)`}
                         </label>
                         <input 
                             type="number" 
                             name="amount" 
                             value={order.amount} 
                             onChange={handleChange} 
-                            min="0.001"
-                            step="0.001"
-                            style={{ ...styles.input, border: isBalanceInsufficient ? '1px solid #ff4d4d' : styles.input.border }} 
+                            min="0.0001"
+                            step="0.0001"
+                            style={{ ...styles.input, border: isBalanceInsufficient && !demoMode ? '1px solid #ff4d4d' : styles.input.border }} 
                         />
                         <span style={styles.tokenLabel}>{order.tokenIn}</span>
                     </div>
@@ -675,10 +721,11 @@ function OrderForm() {
                         style={{
                             ...styles.submitOrderButton,
                             opacity: buttonDisabled ? 0.5 : 1,
-                            cursor: buttonDisabled ? 'not-allowed' : 'pointer'
+                            cursor: buttonDisabled ? 'not-allowed' : 'pointer',
+                            backgroundColor: demoMode ? '#00ff7f' : '#00ccff'
                         }}
                     >
-                        Firmar y Enviar Orden Privada
+                        {demoMode ? '🎮 Firmar Orden Demo' : 'Firmar y Enviar Orden Privada'}
                     </button>
                 </form>
             </div>

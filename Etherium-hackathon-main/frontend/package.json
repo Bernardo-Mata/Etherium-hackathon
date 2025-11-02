@@ -35,29 +35,25 @@
     "web-vitals": "^2.1.4",
     "web3modal": "^1.9.12"
   },
-
-"scripts": {
-  "start": "craco start",
-  "build": "craco build",
-  "test": "craco test",
-  "eject": "react-scripts eject" 
-},
- 
-"eslintConfig": {
-  "extends": [
-    "react-app"
-  ],
-  "globals": { 
-    "BigInt": "readonly" 
+  "scripts": {
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
+    "eject": "react-scripts eject"
   },
-  "parserOptions": {
-    "ecmaVersion": 2020,
-    "sourceType": "module"
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ],
+    "globals": {
+      "BigInt": "readonly"
+    },
+    "parserOptions": {
+      "ecmaVersion": 2020,
+      "sourceType": "module"
+    },
+    "rules": {}
   },
-  "rules": {
-  
-  }
-},
   "browserslist": {
     "production": [
       ">0.2%",
