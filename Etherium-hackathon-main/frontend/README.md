@@ -1,70 +1,157 @@
-# Getting Started with Create React App
+# Anti-MEV Dark Pool - Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Frontend de React para la aplicación Dark Pool Anti-MEV desarrollada para el Ethereum Hackathon.
 
-## Available Scripts
+## 🚀 Características
 
-In the project directory, you can run:
+- **Interfaz de usuario moderna**: Construida con React 19.2.0 y componentes funcionales
+- **Integración con MetaMask**: Conexión directa con wallets de Ethereum
+- **Visualización de TWAP**: Gráficos interactivos con Recharts
+- **Modo Demo**: Prueba la aplicación sin necesidad de wallet
+- **Arquitectura modular**: Separación clara de componentes, servicios y hooks
 
-### `npm start`
+## 📁 Estructura del Proyecto
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+frontend/
+├── public/              # Archivos estáticos
+├── src/
+│   ├── components/      # Componentes React
+│   │   ├── AntiMevApp.jsx          # Componente principal
+│   │   ├── Header.jsx              # Encabezado y navegación
+│   │   ├── OrderFormFields.jsx     # Formulario de órdenes
+│   │   ├── ResultsPanel.jsx        # Panel de resultados
+│   │   ├── SidePanel.jsx           # Panel lateral
+│   │   └── StatusMessage.jsx       # Mensajes de estado
+│   ├── config/          # Configuraciones
+│   │   ├── api.config.js           # URLs y endpoints
+│   │   └── blockchain.config.js    # Redes blockchain
+│   ├── constants/       # Constantes de la aplicación
+│   ├── hooks/           # Custom hooks
+│   │   ├── useWallet.js            # Gestión de wallet
+│   │   └── useOrderForm.js         # Gestión de formulario
+│   ├── services/        # Servicios
+│   │   ├── api.service.js          # Comunicación con backend
+│   │   └── wallet.service.js       # Interacción con blockchain
+│   ├── styles/          # Estilos centralizados
+│   ├── utils/           # Utilidades
+│   │   ├── caesarCipher.js         # Encriptación Caesar
+│   │   └── format.utils.js         # Funciones de formateo
+│   ├── App.js           # Componente raíz
+│   └── index.js         # Punto de entrada
+└── package.json
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🛠️ Tecnologías
 
-### `npm test`
+- **React 19.2.0**: Framework principal
+- **ethers.js 6.15.0**: Interacción con Ethereum
+- **Recharts 3.3.0**: Visualización de datos
+- **Create React App**: Configuración base
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 📦 Instalación
 
-### `npm run build`
+```bash
+cd Etherium-hackathon-main/frontend
+npm install
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## ▶️ Ejecución
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Modo Desarrollo
+```bash
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+La aplicación se abrirá en [http://localhost:3000](http://localhost:3000)
 
-### `npm run eject`
+### Modo Producción
+```bash
+npm run build
+npm install -g serve
+serve -s build
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## 🔧 Configuración
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Variables de Entorno
+Puedes configurar las siguientes variables creando un archivo `.env` en la raíz del frontend:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```env
+REACT_APP_API_URL=http://localhost:3001
+REACT_APP_NETWORK=scroll
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Redes Soportadas
+- Ethereum Mainnet (ID: 1)
+- Scroll Mainnet (ID: 534352)
+- Arbitrum One (ID: 42161)
 
-## Learn More
+## 🎯 Uso
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. **Conectar Wallet**: Haz clic en "Conectar MetaMask"
+2. **Seleccionar Red**: Asegúrate de estar en una red soportada
+3. **Ingresar Datos**: Completa el formulario de orden TWAP
+4. **Ver Resultados**: Analiza las gráficas y comparativas de ejecución
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Modo Demo
+Activa el "Modo Demo" para probar la aplicación sin conectar una wallet real.
 
-### Code Splitting
+## 📚 Componentes Principales
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### AntiMevApp
+Componente principal que orquesta toda la aplicación. Maneja el estado global y la lógica de negocio.
 
-### Analyzing the Bundle Size
+### Header
+Encabezado con navegación y botón de conexión de wallet.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### OrderFormFields
+Formulario para crear órdenes TWAP con validación en tiempo real.
 
-### Making a Progressive Web App
+### ResultsPanel
+Visualización de resultados con gráficos de comparación entre ejecución ideal y con MEV.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 🔐 Seguridad
 
-### Advanced Configuration
+- **Validación de inputs**: Todos los formularios validan datos antes de enviar
+- **Firma de mensajes**: Uso de EIP-191 para firmas personales
+- **Conexión segura**: Comunicación HTTPS con el backend
+- **Encriptación**: Caesar cipher para demostración (usar AES-256 en producción)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 🐛 Problemas Comunes
 
-### Deployment
+### MetaMask no se conecta
+- Verifica que MetaMask esté instalado
+- Actualiza MetaMask a la última versión
+- Limpia caché del navegador
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Error de red
+- Confirma que estés en una red soportada
+- Verifica tu conexión a Internet
+- Revisa que el backend esté ejecutándose
 
-### `npm run build` fails to minify
+### Balance insuficiente
+- Asegúrate de tener ETH en tu wallet
+- Prueba el modo demo para testing
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 📖 Documentación Adicional
+
+- [Guía Rápida](../../QUICKSTART.md)
+- [Arquitectura](../../ARCHITECTURE.md)
+- [Guía de Migración](../../MIGRATION_GUIDE.md)
+
+## 🤝 Contribuir
+
+Para contribuir al proyecto:
+1. Lee la documentación de arquitectura
+2. Sigue las convenciones de código
+3. Documenta tus funciones con JSDoc
+4. Prueba antes de hacer commit
+
+## 📄 Licencia
+
+MIT License - Ver archivo LICENSE para más detalles
+
+---
+
+Desarrollado para el Ethereum Hackathon 🚀

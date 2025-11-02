@@ -1,11 +1,43 @@
+# Dependencias
 node_modules/
+package-lock.json
+
+# Archivos de entorno
 .env
+.env.local
+.env.development
+.env.production
+
+# Hardhat
 cache/
 artifacts/
 coverage/
 coverage.json
 typechain/
 typechain-types/
-
-# Hardhat files
 .hardhat
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporales
+.tmp/
+tmp/
