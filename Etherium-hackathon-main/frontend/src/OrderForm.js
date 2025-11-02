@@ -1,65 +1,310 @@
-import React, { useState } from 'react';
-import { ethers } from 'ethers';
-// Importaciones para conexión múltiple
-import WalletConnectProvider from '@walletconnect/web3-provider'; 
-import Web3Modal from 'web3modal';
-// Importación del cifrado César para encriptar la orden
-import { encryptOrder, DEFAULT_SHIFT } from './utils/caesarCipher'; 
-// Asume que la ID de proyecto de WalletConnect ha sido obtenida
-const WALLETCONNECT_PROJECT_ID = '5960bf846eaed41dd77ddbc1b0e27ede'; 
-const API_URL = '/api/orden'; 
+import React, { useState, useEffect } from 'react';
+// Importamos las librerías necesarias para el gráfico
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// --- CONSTANTES DEL SMART CONTRACT ---
-const UNI_ABI = [
-  "function balanceOf(address owner) view returns (uint256)",
-  "function decimals() view returns (uint8)"
-];
-const UNI_ADDRESS = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F982"; // Dirección real del token UNI
+// --- CONSTANTES GLOBALES ---
 const CHAIN_ID = 1; // Ethereum Mainnet
-// ------------------------------------
 
-// --- Componente de Visualización de Resultados ---
+// --- Estilos Centralizados ---
+const styles = {
+    mainLayout: {
+        minHeight: '100vh',
+        backgroundColor: '#0a0a0a',
+        color: '#f0f0f0',
+        fontFamily: "'Inter', sans-serif",
+    },
+    header: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '20px 40px',
+        borderBottom: '1px solid #1a1a1a',
+        backgroundColor: '#111111',
+    },
+    logo: {
+        fontSize: '24px',
+        fontWeight: 'bold',
+        color: '#00ccff',
+    },
+    navLinks: {
+        display: 'flex',
+        gap: '20px',
+    },
+    navLink: {
+        color: '#999',
+        cursor: 'pointer',
+        transition: 'color 0.2s, border-bottom 0.2s',
+        paddingBottom: '5px',
+    },
+    navLinkActive: {
+        color: '#fff',
+        fontWeight: 'bold',
+        borderBottom: '2px solid #00ccff',
+    },
+    navLinkHover: { // Nuevo estilo para hover
+        color: '#fff',
+        fontWeight: 'bold',
+        borderBottom: '2px solid #00ccff',
+    },
+    connectWalletButton: {
+        padding: '10px 20px',
+        borderRadius: '10px',
+        border: 'none',
+        backgroundColor: '#00ccff',
+        color: '#000',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s',
+    },
+    connectedWalletInfo: {
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: '#222',
+        borderRadius: '10px',
+        padding: '8px 15px',
+        border: '1px solid #00ccff',
+    },
+    walletAddress: {
+        fontSize: '14px',
+        marginRight: '10px',
+    },
+    disconnectWalletButton: {
+        backgroundColor: 'transparent',
+        border: 'none',
+        color: '#00ccff',
+        cursor: 'pointer',
+        marginLeft: '5px',
+    },
+    contentArea: {
+        display: 'flex',
+        maxWidth: '1200px',
+        margin: '40px auto',
+        gap: '30px',
+        flexWrap: 'wrap',
+    },
+    leftPanel: {
+        flex: 2,
+        minWidth: '400px',
+        backgroundColor: '#1e1e1e',
+        borderRadius: '15px',
+        boxShadow: '0 0 20px rgba(0, 204, 255, 0.1)',
+        padding: '30px',
+    },
+    rightPanel: {
+        flex: 1,
+        minWidth: '300px',
+        backgroundColor: '#1e1e1e',
+        borderRadius: '15px',
+        padding: '30px',
+    },
+    sectionTitle: {
+        fontSize: '24px',
+        color: '#fff',
+        marginBottom: '10px',
+    },
+    sectionSubtitle: {
+        color: '#999',
+        marginBottom: '20px',
+        fontSize: '14px',
+    },
+    inputGroup: {
+        marginBottom: '20px',
+        position: 'relative',
+    },
+    label: {
+        display: 'block',
+        marginBottom: '8px',
+        color: '#00ccff',
+        fontWeight: '600',
+    },
+    input: {
+        width: '100%',
+        padding: '12px 15px',
+        borderRadius: '8px',
+        border: '1px solid #333',
+        backgroundColor: '#2a2a2a',
+        color: '#fff',
+        fontSize: '16px',
+        boxSizing: 'border-box',
+    },
+    balanceDisplay: {
+        backgroundColor: '#00ccff1a',
+        border: '1px solid #00ccff',
+        fontWeight: 'bold',
+    },
+    tokenLabel: {
+        position: 'absolute',
+        right: '15px',
+        top: '40px',
+        padding: '5px 10px',
+        backgroundColor: '#333',
+        borderRadius: '6px',
+        color: '#00ccff',
+        fontWeight: 'bold',
+        fontSize: '12px',
+    },
+    submitOrderButton: {
+        width: '100%',
+        padding: '15px',
+        borderRadius: '10px',
+        border: 'none',
+        backgroundColor: '#00ccff',
+        color: '#000',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        transition: 'opacity 0.2s',
+        marginTop: '15px',
+    },
+    resultsContainer: {
+        padding: '30px 0',
+    },
+    comparisonGrid: {
+        display: 'flex',
+        gap: '20px',
+        margin: '25px 0',
+        flexWrap: 'wrap',
+    },
+    resultCard: {
+        flex: 1,
+        minWidth: '250px',
+        padding: '20px',
+        borderRadius: '10px',
+        textAlign: 'center',
+    },
+    idealCard: {
+        backgroundColor: '#005f77',
+        border: '1px solid #00ccff',
+    },
+    normalCard: {
+        backgroundColor: '#331a1a',
+        border: '1px solid #993333',
+    },
+    value: {
+        fontSize: '20px',
+        fontWeight: 'bold',
+        margin: '10px 0',
+        color: '#fff',
+    },
+    detail: {
+        fontSize: '12px',
+        color: '#ccc',
+    },
+    savingsHighlight: {
+        padding: '20px',
+        textAlign: 'center',
+        backgroundColor: '#00ff7f1a',
+        border: '2px solid #00ff7f',
+        borderRadius: '10px',
+        margin: '25px 0',
+    },
+    savingsValue: {
+        fontSize: '28px',
+        fontWeight: '900',
+        color: '#00ff7f',
+        margin: '10px 0',
+    },
+    globalStatusMessage: {
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: '#00ccff',
+        color: '#000',
+        padding: '10px 20px',
+        borderRadius: '10px',
+        fontWeight: 'bold',
+        zIndex: 1000,
+    },
+    connectWalletPlaceholder: {
+        padding: '40px 20px',
+        textAlign: 'center',
+        border: '1px dashed #333',
+        borderRadius: '10px',
+        marginTop: '20px',
+    },
+    chartContainer: {
+        padding: '20px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '10px',
+        marginTop: '25px',
+        height: '300px',
+    },
+};
+
+// --- Componente de Resultados ---
 const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
-    const [showReceipt, setShowReceipt] = useState(false); 
-
+    const [showReceipt, setShowReceipt] = useState(false);
+    
+    if (!results || !signedData) return null;
+    
     const formatCurrency = (value) => parseFloat(value).toLocaleString('es-ES', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 
     });
 
+    // Generar datos para Recharts (Monto por porción)
+    const twapData = Array.from({ length: Math.min(order.duration, 24) }, (_, i) => ({
+        name: `${i + 1}h`,
+        amount: order.amount / order.duration,
+    }));
+
     return (
-        <div className="results-container">
-            <h2>✨ ¡Orden Privada Ejecutada con Éxito!</h2>
-            <p className="subtitle">
-                Se ejecutó su orden de **{order.amount} {order.tokenIn}** de forma privada, eliminando el riesgo de MEV.
+        <div style={styles.resultsContainer}>
+            <h2 style={styles.sectionTitle}>✨ ¡Orden Privada Ejecutada con Éxito!</h2>
+            <p style={styles.sectionSubtitle}>
+                Orden para **{signedData.walletAddress.substring(0, 8)}...** ejecutada de forma privada.
             </p>
             
-            <div className="comparison-grid">
-                <div className="result-card ideal">
-                    <h3>🚀 Resultado del Dark Pool (Anti-MEV)</h3>
-                    <p className="value">Recibido: **{formatCurrency(results.darkPoolOutput)} USDC/DAI**</p>
-                    <p className="detail">Precio ideal sin deslizamiento. Orden autenticada con firma criptográfica.</p>
+            <div style={styles.comparisonGrid}>
+                <div style={{ ...styles.resultCard, ...styles.idealCard }}>
+                    <h3>🚀 Dark Pool (Anti-MEV)</h3>
+                    <p style={styles.value}>**{formatCurrency(results.darkPoolOutput)} USDC**</p>
+                    <p style={styles.detail}>Precio ideal sin deslizamiento</p>
                 </div>
                 
-                <div className="result-card normal">
-                    <h3>❌ Swap Estándar (Mercado Abierto)</h3>
-                    <p className="value">Recibido: **{formatCurrency(results.normalSwapOutput)} USDC/DAI**</p>
-                    <p className="detail">Resultado simulado con un 3% de pérdida por MEV y deslizamiento.</p>
+                <div style={{ ...styles.resultCard, ...styles.normalCard }}>
+                    <h3>❌ Swap Estándar</h3>
+                    <p style={styles.value}>**{formatCurrency(results.normalSwapOutput)} USDC**</p>
+                    <p style={styles.detail}>Con 3% de pérdida por MEV</p>
                 </div>
             </div>
 
-            <div className="savings-highlight">
+            <div style={styles.savingsHighlight}>
                 <h3>💰 ¡Ahorro Total Preservado!</h3>
-                <p className="savings-value">
-                    {formatCurrency(results.totalSavings)} USDC/DAI
+                <p style={styles.savingsValue}>
+                    {formatCurrency(results.totalSavings)} USDC
                 </p>
-                <p>Este es el valor que su DAO o estrategia algorítmica preservó al usar la ejecución privada.</p>
+                <p>Valor preservado usando ejecución privada</p>
             </div>
 
-            {/* --- INFORMACIÓN DE ENCRIPTACIÓN --- */}
+            {/* Gráfico de Recharts */}
+            <div style={styles.chartContainer}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={twapData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <XAxis dataKey="name" stroke="#999" />
+                        <YAxis stroke="#999" />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#1e1e1e', border: '1px solid #00ccff' }}
+                            labelStyle={{ color: '#fff' }}
+                        />
+                        <Legend />
+                        <Line 
+                            type="monotone" 
+                            dataKey="amount" 
+                            stroke="#00ccff" 
+                            strokeWidth={2}
+                            name={`${order.tokenIn} por porción`}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Información de Encriptación */}
             {results.encryptionUsed && (
-                <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #28a745', borderRadius: '8px', textAlign: 'left', backgroundColor: '#f0fff4' }}>
-                    <h4 style={{ color: '#28a745', marginTop: '0' }}>🔒 Orden Encriptada</h4>
+                <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #00ff7f', borderRadius: '8px', backgroundColor: '#00ff7f1a' }}>
+                    <h4 style={{ color: '#00ff7f', marginTop: '0' }}>🔒 Orden Encriptada</h4>
                     <p style={{ margin: '5px 0' }}><strong>Método:</strong> {results.encryptionUsed}</p>
                     <p style={{ margin: '5px 0', fontSize: '0.9em', color: '#666' }}>
                         Los datos de la orden fueron encriptados usando cifrado César (ROT13) antes de ser procesados en la simulación.
@@ -68,19 +313,23 @@ const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
                 </div>
             )}
             
-            {/* --- INTEGRACIÓN DEL RECIBO CRIPTOGRÁFICO --- */}
-            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #007bff', borderRadius: '8px', textAlign: 'left' }}>
-                <button onClick={() => setShowReceipt(!showReceipt)} className="toggle-receipt-button" style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', fontWeight: 'bold' }}>
-                    {showReceipt ? 'Ocultar Recibo Criptográfico' : 'Ver Recibo Criptográfico (Prueba Blockchain)'}
+            {/* Recibo Criptográfico */}
+            <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #00ccff', borderRadius: '8px', backgroundColor: '#00ccff1a' }}>
+                <button 
+                    onClick={() => setShowReceipt(!showReceipt)} 
+                    style={{ background: 'none', border: 'none', color: '#00ccff', cursor: 'pointer', fontWeight: 'bold' }}>
+                    {showReceipt ? 'Ocultar' : 'Ver'} Recibo Criptográfico
                 </button>
                 
                 {showReceipt && signedData && (
-                    <div className="receipt-details" style={{ marginTop: '10px', fontSize: '0.9em' }}>
-                        <h4>Detalles de la Firma (Prueba Blockchain):</h4>
-                        <p><strong>Dirección del Firmante:</strong> <code>{signedData.walletAddress}</code></p>
-                        <p><strong>Mensaje Original (JSON de Orden):</strong> <code>{signedData.message}</code></p>
-                        <p><strong>Firma Cryptográfica:</strong> <code>{signedData.signature.substring(0, 60)}...</code></p>
-                        <p style={{ color: '#28a745', marginTop: '10px' }}>Esta prueba vincula criptográficamente la orden a la billetera, garantizando la **auditabilidad** y autenticidad.</p>
+                    <div style={{ marginTop: '10px', fontSize: '0.9em' }}>
+                        <h4 style={{ color: '#fff' }}>Detalles de la Firma:</h4>
+                        <p style={{ margin: '5px 0', wordBreak: 'break-all' }}>
+                            <strong>Dirección:</strong> <code style={{ color: '#00ff7f' }}>{signedData.walletAddress}</code>
+                        </p>
+                        <p style={{ margin: '5px 0', wordBreak: 'break-all' }}>
+                            <strong>Firma:</strong> <code style={{ color: '#ccc' }}>{signedData.signature.substring(0, 60)}...</code>
+                        </p>
                     </div>
                 )}
             </div>
@@ -92,113 +341,190 @@ const ResultsPanel = ({ results, order, onNewOrder, signedData }) => {
         </div>
     );
 };
-// ---------------------------------------------
-
 
 function OrderForm() {
     const [walletAddress, setWalletAddress] = useState('');
-    const [currentProvider, setCurrentProvider] = useState(null); 
+    const [ethBalance, setEthBalance] = useState('0.00'); // Saldo real
+    const [chainId, setChainId] = useState(null);
+    const [hoveredLink, setHoveredLink] = useState(null);
     
-    // MODIFICACIÓN FINAL: TOKEN UNI/USDC
+    // El monto inicial es bajo (0.005) para que puedas probar la firma con tu saldo
     const [order, setOrder] = useState({ 
-        amount: 500, 
-        tokenIn: 'UNI', 
+        amount: 0.005, 
+        tokenIn: 'ETH',
         tokenOut: 'USDC', 
         duration: 48 
     });
     
     const [statusMessage, setStatusMessage] = useState('');
-    const [results, setResults] = useState(null); 
-    const [signedData, setSignedData] = useState(null); 
+    const [results, setResults] = useState(null);
+    const [signedData, setSignedData] = useState(null);
 
-    // --- FUNCIÓN 1: CONEXIÓN DE BILLETERA (WEB3MODAL) ---
+    // Conectar a MetaMask
     const connectWallet = async () => {
-        const providerOptions = {
-            injected: {
-                display: {
-                    name: "MetaMask",
-                    description: "Connect with MetaMask"
-                },
-                package: null
-            },
-            walletconnect: {
-                package: WalletConnectProvider,
-                options: {
-                    infuraId: WALLETCONNECT_PROJECT_ID,
-                    chainId: CHAIN_ID, // Usamos la constante 1
+        if (typeof window.ethereum === 'undefined') {
+            setStatusMessage('❌ MetaMask no está instalado. Por favor instálalo desde metamask.io');
+            return;
+        }
+
+        try {
+            setStatusMessage('Conectando a MetaMask...');
+            
+            // Solicitar acceso a las cuentas
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+            
+            const address = accounts[0];
+            setWalletAddress(address);
+
+            // Obtener el chain ID
+            const currentChainId = await window.ethereum.request({ 
+                method: 'eth_chainId' 
+            });
+            setChainId(parseInt(currentChainId, 16));
+
+            // Leer saldo de ETH
+            await updateBalance(address);
+
+            setStatusMessage(`✅ Conectado exitosamente. Saldo ETH: ${ethBalance} ETH`);
+
+            // Escuchar cambios
+            window.ethereum.on('accountsChanged', handleAccountsChanged);
+            window.ethereum.on('chainChanged', handleChainChanged);
+
+        } catch (error) {
+            console.error('Error conectando:', error);
+            // Mostrar mensaje de error más legible
+            const msg = error.code === 4001 ? "Conexión rechazada por el usuario." : `Error: ${error.message}`;
+            setStatusMessage(`❌ ${msg}`);
+        }
+    };
+
+    // Actualizar saldo (lee el valor real)
+    const updateBalance = async (address) => {
+        try {
+            const balanceHex = await window.ethereum.request({
+                method: 'eth_getBalance',
+                params: [address, 'latest']
+            });
+            
+            // Convertir de Hex a BigInt (Wei)
+            const balanceWei = BigInt(balanceHex);
+            
+            // Convertir a cadena y luego a ETH (dividir por 10^18)
+            const balanceEthString = (Number(balanceWei) / 1e18).toFixed(4);
+
+            setEthBalance(balanceEthString);
+            return balanceEthString; // Retorna el saldo para usarlo en el estado
+        } catch (error) {
+            console.error('Error leyendo saldo:', error);
+            setStatusMessage('⚠️ Error al leer saldo ETH');
+            return '0.00';
+        }
+    };
+
+    // Manejar cambio de cuentas
+    const handleAccountsChanged = async (accounts) => {
+        if (accounts.length === 0) {
+            disconnectWallet();
+        } else {
+            const newAddress = accounts[0];
+            setWalletAddress(newAddress);
+            const newBalance = await updateBalance(newAddress);
+            setStatusMessage(`✅ Nueva cuenta conectada. Saldo: ${newBalance} ETH`);
+        }
+    };
+
+    // Manejar cambio de red
+    const handleChainChanged = (newChainId) => {
+        setChainId(parseInt(newChainId, 16));
+        setStatusMessage("⚠️ Red cambiada. Recargando para verificar conexión...");
+        setTimeout(() => window.location.reload(), 1000);
+    };
+
+    // Desconectar wallet
+    const disconnectWallet = () => {
+        setWalletAddress('');
+        setEthBalance('0.00');
+        setChainId(null);
+        setResults(null);
+        setSignedData(null);
+        setStatusMessage('Billetera desconectada');
+        
+        // Remover listeners
+        if (window.ethereum && window.ethereum.removeListener) {
+            window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+            window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+    };
+
+    // Verificar conexión al cargar
+    useEffect(() => {
+        const checkConnection = async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ 
+                        method: 'eth_accounts' 
+                    });
+                    
+                    if (accounts.length > 0) {
+                        const address = accounts[0];
+                        setWalletAddress(address);
+                        const balance = await updateBalance(address);
+                        
+                        const currentChainId = await window.ethereum.request({ 
+                            method: 'eth_chainId' 
+                        });
+                        setChainId(parseInt(currentChainId, 16));
+                        setStatusMessage(`✅ Conectado al cargar. Saldo: ${balance} ETH`);
+                    }
+                } catch (error) {
+                    console.error('Error verificando conexión:', error);
                 }
             }
         };
-
-        const web3Modal = new Web3Modal({
-            cacheProvider: true,
-            providerOptions
-        });
-
-        try {
-            const web3Provider = await web3Modal.connect(); 
-            const provider = new ethers.BrowserProvider(web3Provider);
-            const signer = await provider.getSigner();
-            const address = await signer.getAddress();
-            
-            // --- LÓGICA DE INTERACCIÓN CON EL SMART CONTRACT ---
-            let statusText = `Conectado: ${address.substring(0, 6)}...`;
-
-            try {
-                // 1. Crear instancia del contrato UNI (lectura)
-                const uniContract = new ethers.Contract(UNI_ADDRESS, UNI_ABI, provider);
-                
-                // 2. Leer el saldo del Smart Contract
-                const balanceRaw = await uniContract.balanceOf(address);
-                const decimals = await uniContract.decimals();
-                
-                // 3. Formatear y Mostrar
-                const balanceFormatted = ethers.formatUnits(balanceRaw, decimals);
-                
-                statusText = `✅ Conectado. Saldo UNI (SC): ${parseFloat(balanceFormatted).toFixed(2)}`;
-                
-            } catch (scError) {
-                // Si la red no es Mainnet o hay un fallo, se usa el mensaje por defecto.
-                statusText = `✅ Conectado. Error al leer el Saldo UNI (SC).`;
-            }
-            // ---------------------------------------------------
-            
-            setWalletAddress(address);
-            setCurrentProvider(provider); 
-            setStatusMessage(statusText); // Usamos el mensaje actualizado
-
-        } catch (error) {
-            console.error("Error conectando la billetera:", error);
-            setStatusMessage("Error al conectar. Usuario canceló o fallo de conexión.");
-        }
-    };
-    // -------------------------------------------------------------
+        
+        checkConnection();
+    }, []);
 
     const handleChange = (e) => {
-        setOrder({ ...order, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        // Solo para el monto, permitimos decimales
+        const newValue = name === 'amount' ? value : value;
+        setOrder({ ...order, [name]: newValue });
     };
-    
+
     const handleNewOrder = () => {
         setResults(null);
-        setSignedData(null); 
+        setSignedData(null);
         setStatusMessage('');
     };
 
-    // --- FUNCIÓN 2: FIRMAR Y ENVIAR LA ORDEN ---
+    // Manejador del Formulario
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!walletAddress || !currentProvider) {
-            setStatusMessage("Por favor, conecta tu billetera primero.");
+        if (!walletAddress) {
+            setStatusMessage("Por favor, conecta tu billetera");
+            return;
+        }
+
+        // Validación de saldo real
+        if (parseFloat(order.amount) > parseFloat(ethBalance)) {
+            setStatusMessage(`❌ Saldo insuficiente. Necesitas ${order.amount} ETH, tienes ${ethBalance} ETH.`);
             return;
         }
         
+        if (chainId !== CHAIN_ID) {
+            setStatusMessage(`❌ Por favor, cambia a Ethereum Mainnet (Chain ID: ${CHAIN_ID}) para continuar.`);
+            return;
+        }
+
         try {
-            setStatusMessage("1. Solicitando firma a la billetera (Prueba de autenticidad)...");
+            setStatusMessage("1. Solicitando firma...");
 
-            const signer = await currentProvider.getSigner(); 
-
-            // El mensaje debe ser consistente (strings) para la verificación
+            // Paso 1: Generar el mensaje JSON y firmarlo
             const message = JSON.stringify({
                 amount: order.amount.toString(),
                 tokenIn: order.tokenIn,
@@ -207,96 +533,231 @@ function OrderForm() {
                 timestamp: Date.now().toString()
             });
 
-            const signature = await signer.signMessage(message);
-            
-            // Almacenar datos firmados para el recibo criptográfico
-            setSignedData({ 
-                walletAddress, 
-                message, 
-                signature 
-            }); 
-
-            setStatusMessage("2. Firma generada. Encriptando orden para simulación privada...");
-
-            // Preparar SOLO los datos de la orden para encriptar (NO incluye wallet, firma ni mensaje)
-            // Este es el JSON que se encripta: {"amount":"500","tokenIn":"UNI","tokenOut":"USDC","duration":"48","timestamp":"..."}
-            const orderData = {
-                amount: order.amount.toString(),
-                tokenIn: order.tokenIn,
-                tokenOut: order.tokenOut,
-                duration: order.duration.toString(),
-                timestamp: Date.now().toString()
-            };
-
-            // Encriptar SOLO los datos de la orden usando cifrado César
-            const encryptedOrder = encryptOrder(orderData, DEFAULT_SHIFT);
-
-            // Payload con orden encriptada (wallet NO se encripta)
-            const payload = {
-                encryptedOrder, // Solo la orden encriptada: {"amount":"...","tokenIn":"...","tokenOut":"...","duration":"...","timestamp":"..."}
-                walletAddress, // NO ENCRIPTADO - se envía en texto plano
-                messageToVerify: message, // NO ENCRIPTADO - mensaje original firmado (para verificación)
-                signature // NO ENCRIPTADO - firma criptográfica
-            };
-
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+            // Usar personal_sign para firmar (estándar EIP-191)
+            const signature = await window.ethereum.request({
+                method: 'personal_sign',
+                params: [message, walletAddress]
             });
 
-            const data = await response.json();
+            setSignedData({ walletAddress, message, signature });
+            setStatusMessage("2. Firma generada. Simulando resultados...");
+
+            // Paso 2: Simular el proceso de backend y los resultados
+            const ethPrice = 3000; // Precio simulado de ETH/USDC para el cálculo
+            const orderValue = parseFloat(order.amount) * ethPrice;
             
-            if (response.ok && data.verificationStatus === 'SUCCESS') {
-                setStatusMessage(`✅ Orden autenticada. Simulación de ahorro completada.`);
-                setResults(data.results);
-            } else {
-                setStatusMessage(`❌ Error: ${data.message || 'Fallo en la verificación de firma.'}`);
-                setResults(null);
-                setSignedData(null); 
-            }
+            const simulatedResults = {
+                darkPoolOutput: orderValue,
+                normalSwapOutput: orderValue * 0.97, // 3% de pérdida simulada por MEV
+                totalSavings: orderValue * 0.03,
+                encryptionUsed: "Cifrado César (ROT13) Simulado"
+            };
+
+            // Simular retraso del backend
+            setTimeout(() => {
+                setResults(simulatedResults);
+                setStatusMessage("✅ Orden procesada exitosamente. Vea su ahorro.");
+            }, 1500);
 
         } catch (error) {
-            console.error("Error en el proceso de firma/envío:", error);
-            setStatusMessage(`❌ Falló la operación. Revisa la consola.`);
-            setSignedData(null); 
+            console.error("Error en el proceso de firma:", error);
+            const msg = error.code === 4001 ? "Firma rechazada por el usuario." : `Fallo: ${error.message}`;
+            setStatusMessage(`❌ ${msg}`);
         }
     };
-    
-    // Función para renderizar el contenido
-    const renderContent = () => {
+
+    const getLinkStyle = (name) => {
+        const isActive = name === 'TWAP';
+        const isHovered = hoveredLink === name;
+        
+        if (isActive) return styles.navLinkActive;
+        if (isHovered) return { ...styles.navLink, ...styles.navLinkHover };
+        return styles.navLink;
+    };
+
+    const renderMainContent = () => {
+        // Bloqueo si no está conectado
+        if (!walletAddress) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '60px 30px' }}>
+                    <span style={{ fontSize: '3em', color: '#dc3545' }}>⛔</span>
+                    <h3 style={{ color: '#dc3545', marginTop: '15px' }}>CONEXIÓN REQUERIDA</h3>
+                    <p style={{ color: '#999' }}>
+                        Conecta tu billetera **MetaMask** para ver tu saldo real de ETH.
+                    </p>
+                    <button onClick={connectWallet} style={{ ...styles.connectWalletButton, marginTop: '20px', backgroundColor: '#dc3545' }}>
+                        Conectar Billetera
+                    </button>
+                </div>
+            );
+        }
+
+        // Si hay resultados, muestra el panel
         if (results) {
             return <ResultsPanel results={results} order={order} onNewOrder={handleNewOrder} signedData={signedData} />;
         }
+
+        // Formulario de orden
+        const isBalanceInsufficient = parseFloat(order.amount) > parseFloat(ethBalance);
+        const buttonDisabled = !walletAddress || isBalanceInsufficient || chainId !== CHAIN_ID;
         
         return (
-            <form onSubmit={handleSubmit} className="order-form">
-                <h1>--- ¡HOLAAAA HACKATHON! ---</h1> 
-                <h2>Cargar Orden TWAP Privada</h2>
-                <p>Define una orden a largo plazo para evitar que los bots MEV roben tu alfa.</p>
+            <div>
+                <h2 style={styles.sectionTitle}>Cargar Orden TWAP Privada</h2>
+                <p style={styles.sectionSubtitle}>Define una orden para evitar que los bots MEV roben tu alfa</p>
 
-                <label>Monto a Vender: <input type="number" name="amount" value={order.amount} onChange={handleChange} required min="1" /></label>
-                <label>Token a Vender: <input type="text" name="tokenIn" value={order.tokenIn} onChange={handleChange} required /></label>
-                 <label>Token a Comprar: <input type="text" name="tokenOut" value={order.tokenOut} onChange={handleChange} required /></label>
-                <label>Duración de la Ejecución (horas): <input type="number" name="duration" value={order.duration} onChange={handleChange} min="1" required /></label>
-                
-                <button type="submit" disabled={!walletAddress}>
-                    Firmar y Enviar Orden Privada
-                </button>
-            </form>
+                <form onSubmit={handleSubmit}>
+                    {/* Saldo Real */}
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Saldo ETH (Real)</label>
+                        <input 
+                            type="text" 
+                            value={`${ethBalance} ETH`} 
+                            readOnly 
+                            style={{ ...styles.input, ...styles.balanceDisplay }} 
+                        />
+                    </div>
+
+                    {/* Monto a Vender */}
+                    <div style={styles.inputGroup}>
+                        <label style={{ ...styles.label, color: isBalanceInsufficient ? '#ff4d4d' : styles.label.color }}>
+                            Monto a Vender {isBalanceInsufficient && `(Saldo insuficiente)`}
+                        </label>
+                        <input 
+                            type="number" 
+                            name="amount" 
+                            value={order.amount} 
+                            onChange={handleChange} 
+                            min="0.001"
+                            step="0.001"
+                            style={{ ...styles.input, border: isBalanceInsufficient ? '1px solid #ff4d4d' : styles.input.border }} 
+                        />
+                        <span style={styles.tokenLabel}>{order.tokenIn}</span>
+                    </div>
+
+                    {/* Token de Salida */}
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Token a Comprar</label>
+                        <input 
+                            type="text" 
+                            name="tokenOut" 
+                            value={order.tokenOut} 
+                            onChange={handleChange} 
+                            style={styles.input} 
+                        />
+                    </div>
+                    
+                    {/* Duración */}
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Duración (horas)</label>
+                        <input 
+                            type="number" 
+                            name="duration" 
+                            value={order.duration} 
+                            onChange={handleChange} 
+                            min="1" 
+                            style={styles.input} 
+                        />
+                    </div>
+
+                    {/* Aviso de Red Incorrecta */}
+                    {chainId !== null && chainId !== CHAIN_ID && (
+                        <div style={{ padding: '10px', backgroundColor: '#ff99001a', border: '1px solid #ff9900', borderRadius: '8px', marginBottom: '15px' }}>
+                            <p style={{ color: '#ff9900', margin: 0 }}>
+                                ⚠️ Estás en la red {chainId}. Cambia a **Ethereum Mainnet** (Chain ID: {CHAIN_ID})
+                            </p>
+                        </div>
+                    )}
+                    
+                    <button 
+                        type="submit"
+                        disabled={buttonDisabled}
+                        style={{
+                            ...styles.submitOrderButton,
+                            opacity: buttonDisabled ? 0.5 : 1,
+                            cursor: buttonDisabled ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        Firmar y Enviar Orden Privada
+                    </button>
+                </form>
+            </div>
         );
     };
 
     return (
-        <div className="container">
-            <h1>Anti-MEV Dark Pool (Uniswap v4 Concepto)</h1>
-            
-            <button onClick={connectWallet} disabled={!!walletAddress} className={`wallet-button ${walletAddress ? 'connected' : ''}`}>
-                {walletAddress ? `Conectado: ${walletAddress.substring(0, 10)}...` : "Conectar Billetera"}
-            </button>
-            <p className="status-bar">{statusMessage}</p>
+        <div style={styles.mainLayout}>
+            <div style={styles.header}>
+                <div style={styles.logo}>Anti-MEV Dark Pool</div>
+                <div style={styles.navLinks}>
+                    {['Swap', 'Limit', 'TWAP', 'Learn'].map(name => (
+                        <span 
+                            key={name}
+                            style={{ ...styles.navLink, ...getLinkStyle(name) }}
+                            onMouseEnter={() => setHoveredLink(name)}
+                            onMouseLeave={() => setHoveredLink(null)}
+                        >
+                            {name}
+                        </span>
+                    ))}
+                </div>
+                <div>
+                    {!walletAddress ? (
+                        <button onClick={connectWallet} style={styles.connectWalletButton}>
+                            Conectar Billetera
+                        </button>
+                    ) : (
+                        <div style={styles.connectedWalletInfo}>
+                            <span style={styles.walletAddress}>
+                                {walletAddress.substring(0, 6)}...{walletAddress.substring(walletAddress.length - 4)}
+                            </span>
+                            <button onClick={disconnectWallet} style={styles.disconnectWalletButton}>
+                                ✖️
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
 
-            {renderContent()}
+            <div style={styles.contentArea}>
+                <div style={styles.leftPanel}>
+                    {renderMainContent()}
+                </div>
+                <div style={styles.rightPanel}>
+                    {!walletAddress && (
+                        <div style={styles.connectWalletPlaceholder}>
+                            <span style={{ fontSize: '3em', color: '#00ccff' }}>💳</span>
+                            <h3 style={{ color: '#fff' }}>Conectar Billetera</h3>
+                            <p style={{ color: '#999' }}>Conéctate para ver tu saldo real de ETH</p>
+                        </div>
+                    )}
+                    {walletAddress && !results && (
+                        <div style={styles.connectWalletPlaceholder}>
+                            <span style={{ fontSize: '3em', color: '#ffcc00' }}>⏳</span>
+                            <h3>Saldo Cargado</h3>
+                            <p style={{ color: '#999' }}>
+                                Tu saldo: <strong style={{ color: '#00ccff' }}>{ethBalance} ETH</strong>
+                            </p>
+                            <p style={{ color: '#999', fontSize: '12px', marginTop: '10px' }}>
+                                Red: Chain ID {chainId || 'Desconocida'}
+                            </p>
+                        </div>
+                    )}
+                    {walletAddress && results && (
+                        <div style={styles.connectWalletPlaceholder}>
+                            <span style={{ fontSize: '3em', color: '#00ff7f' }}>📊</span>
+                            <h3>Análisis Completo</h3>
+                            <p style={{ color: '#999' }}>Tu ahorro se muestra en el panel izquierdo</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+            
+            {statusMessage && (
+                <div style={styles.globalStatusMessage}>
+                    {statusMessage}
+                </div>
+            )}
         </div>
     );
 }
